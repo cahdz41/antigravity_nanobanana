@@ -1,3 +1,41 @@
+import crypto from 'crypto';
+
+/**
+ * Validate n8n webhook signature
+ * If no secret is configured, validation is skipped (for development)
+ */
+export function validateN8nSignature(
+    body: unknown,
+    signature: string | null
+): boolean {
+    const secret = process.env.N8N_WEBHOOK_SECRET;
+
+    // If no secret is configured, skip validation (development mode)
+    if (!secret) {
+        return true;
+    }
+
+    // If secret is configured but no signature provided, reject
+    if (!signature) {
+        return false;
+    }
+
+    try {
+        const payload = JSON.stringify(body);
+        const expectedSignature = crypto
+            .createHmac('sha256', secret)
+            .update(payload)
+            .digest('hex');
+
+        return crypto.timingSafeEqual(
+            Buffer.from(signature),
+            Buffer.from(expectedSignature)
+        );
+    } catch {
+        return false;
+    }
+}
+
 /**
  * Trigger the n8n workflow and wait for the response
  * n8n returns the generated image directly in the response
